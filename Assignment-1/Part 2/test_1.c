@@ -21,7 +21,7 @@ int main()
     int fd1 = open("/proc/partb_1", O_RDWR);
     if(fd1 < 0)
     {
-        printf("Sahi Chal rha hai boss\n");
+        printf("Error: The proc filer could not be initialised\n");
     }
 
     for (int i = 0; i < 7; i++) {
