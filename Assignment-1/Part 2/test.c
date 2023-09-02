@@ -12,7 +12,7 @@
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Sourabh Soumyakanta Das and Shiladitya De");
 MODULE_DESCRIPTION("LKM for a deque");
-MODULE_VERSION("0.1");
+MODULE_VERSION("1.1");
 
 #define LKM_NAME "partb_1_20CS30051_20CS30061"
 #define PROCFS_MAX_SIZE 1024
@@ -125,24 +125,22 @@ enum proc_state {
 };
 
 // Linked list of processes
-struct process_node {
+struct proc_node {
     pid_t pid;
     enum proc_state state;
     struct deque *proc_deque;
-    struct process_node *next;
+    struct proc_node *next;
 };
 
 // Global variables
 static struct proc_dir_entry *proc_file;
-// static char procfs_buffer[PROCFS_MAX_SIZE];
-// static size_t procfs_buffer_size = 0;
-static struct process_node *process_list = NULL;
+static struct proc_node *process_list = NULL;
 
 DEFINE_MUTEX(mutex);
 
-static struct process_node *find_process(pid_t pid)
+static struct proc_node *get_process_by_pid(pid_t pid)
 {
-	struct process_node *plist = process_list;
+	struct proc_node *plist = process_list;
 
 	while(plist != NULL)
 	{
@@ -153,9 +151,9 @@ static struct process_node *find_process(pid_t pid)
 	return NULL;
 }
 
-static struct process_node *insert_process(pid_t pid)
+static struct proc_node *insert_process(pid_t pid)
 {
-	struct process_node *new_node = kmalloc(sizeof(struct process_node), GFP_KERNEL);
+	struct proc_node *new_node = kmalloc(sizeof(struct proc_node), GFP_KERNEL);
 
 	if(new_node != NULL)
 	{
@@ -171,7 +169,7 @@ static struct process_node *insert_process(pid_t pid)
 	return new_node;
 }
 
-static void delete_process_node(struct process_node *node)
+static void delete_proc_node(struct proc_node *node)
 {
 	if(node != NULL)
 	{
@@ -182,18 +180,18 @@ static void delete_process_node(struct process_node *node)
 
 static int delete_process(pid_t pid)
 {
-	struct process_node *ptr1 = NULL;
-	struct process_node *ptr2 = process_list;
+	struct proc_node *ptr1 = NULL;
+	struct proc_node *ptr2 = process_list;
 
 	if(ptr2->pid == pid)
 	{
 		process_list = ptr2->next;
 
-		delete_process_node(ptr2);
+		delete_proc_node(ptr2);
 		return 0;
 	}
 
-	struct process_node *gp = find_process(pid);
+	struct proc_node *gp = get_process_by_pid(pid);
 	if(gp == NULL) return -EACCES;
 
 	while(ptr2 != NULL)
@@ -201,7 +199,7 @@ static int delete_process(pid_t pid)
 		if(ptr2->pid == pid)
 		{
 			ptr1->next = ptr2->next;
-			delete_process_node(ptr2);
+			delete_proc_node(ptr2);
 			return 0;
 		}
 
@@ -214,25 +212,25 @@ static int delete_process(pid_t pid)
 
 static void delete_all_process(void) // remember to remove void
 {
-	struct process_node *all_proc = process_list;
+	struct proc_node *all_proc = process_list;
 
 	while(all_proc != NULL)
 	{
-		struct process_node *temp = all_proc;
+		struct proc_node *temp = all_proc;
 		all_proc = all_proc->next;
-		delete_process_node(temp);
+		delete_proc_node(temp);
 	}
 }
 
 static int proc_file_create(struct inode *ind, struct file *fp)
 {
 	pid_t pid; 
-	struct process_node *pnode;
+	struct proc_node *pnode;
 
 	mutex_lock(&mutex);
 
 	pid = current->pid;
-	pnode = find_process(pid);
+	pnode = get_process_by_pid(pid);
 
 	printk(KERN_INFO "proc_file_create() initiated by process[%d]\n", pid);
 
@@ -266,12 +264,12 @@ static int proc_file_create(struct inode *ind, struct file *fp)
 static int proc_file_destroy(struct inode *ind, struct file* fp)
 {
 	pid_t pid;
-	struct process_node *pnode;
+	struct proc_node *pnode;
 
 	mutex_lock(&mutex);
 	pid = current->pid;
 	printk(KERN_INFO "proc_file_destroy() initiated by process[%d]\n", pid);	
-	pnode = find_process(pid);
+	pnode = get_process_by_pid(pid);
 
 	if(pnode != NULL)
 	{
@@ -289,7 +287,7 @@ static int proc_file_destroy(struct inode *ind, struct file* fp)
 	return 0;
 }
 
-static int read_dq(struct process_node *pnode, char *buf, int *buf_size)
+static int read_dq(struct proc_node *pnode, char *buf, int *buf_size)
 {
 	if(pnode->state == PROC_FILE_OPEN)
 	{
@@ -311,13 +309,13 @@ static int read_dq(struct process_node *pnode, char *buf, int *buf_size)
 static ssize_t proc_file_read(struct file *fp, char __user *buffer, size_t length, loff_t *offset)
 {
 	pid_t pid;
-	struct process_node *pnode;
+	struct proc_node *pnode;
 	int ret_val = 0;
 	mutex_lock(&mutex);
 
 	pid = current->pid;
 	printk(KERN_INFO "Process[%d] has initiated the proc_file_read() function\n", pid);
-	pnode = find_process(pid);
+	pnode = get_process_by_pid(pid);
 
 	if(pnode != NULL)
 	{
@@ -349,7 +347,7 @@ static ssize_t proc_file_read(struct file *fp, char __user *buffer, size_t lengt
 }
 
 
-static int write_dq(struct process_node *pnode, char *buf, int *buf_size)
+static int write_dq(struct proc_node *pnode, char *buf, int *buf_size)
 {
 	if(pnode->state == PROC_FILE_OPEN)
 	{
@@ -404,13 +402,13 @@ static int write_dq(struct process_node *pnode, char *buf, int *buf_size)
 static ssize_t proc_file_write(struct file *fp, const char __user *buffer, size_t length, loff_t *offset)
 {
     pid_t pid;
-	struct process_node *pnode;
+	struct proc_node *pnode;
 	int ret_val = 0;
     mutex_lock(&mutex);
 
     pid = current->pid;
     printk(KERN_INFO "Process[%d] has initiated the proc_file_write() function\n", pid);
-    pnode = find_process(pid);
+    pnode = get_process_by_pid(pid);
 
 	if(pnode != NULL)
 	{
