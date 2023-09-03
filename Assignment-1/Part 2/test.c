@@ -115,6 +115,7 @@ static void dq_delete(struct deque *dq)
 	{
         while(dq->size != 0) pop_front(dq);
 		kfree(dq);
+		dq = NULL;
     }
 }
 
