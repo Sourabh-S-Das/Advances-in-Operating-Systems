@@ -9,6 +9,8 @@
 #include <linux/string.h>
 #include <linux/uaccess.h>
 
+// Module descriptions
+
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Sourabh Soumyakanta Das and Shiladitya De");
 MODULE_DESCRIPTION("LKM for a deque");
@@ -17,11 +19,13 @@ MODULE_VERSION("1.1");
 #define LKM_NAME "partb_1_20CS30051_20CS30061"
 #define PROCFS_MAX_SIZE 1024
 
+// Structure define each element of the linked list of the deque
 struct elem {
 	int val;
 	struct elem *next;
 };
 
+// linked list for implementing deque
 struct deque {
 	struct elem *head;
 	struct elem *tail;
@@ -31,7 +35,12 @@ struct deque {
 
 // Deque helper functions
 
-// Deque init function
+/*
+	Function name: deque_init
+	Arguments: capacity of the deque
+	Returns: pointer to the deque created and on error it returns NULL
+	Function: It initialises the deque with the required capacity
+*/
 static struct deque *deque_init(int capacity)
 {
     struct deque *dq = kmalloc(sizeof(struct deque), GFP_KERNEL);
@@ -47,7 +56,13 @@ static struct deque *deque_init(int capacity)
     return dq;
 }
 
-// Deque push_back function
+/*
+	Function name: push_back
+	Arguments: pointer to a deque, value to be inserted
+	Returns: 0 if successful and -EACCES on error
+	Function: It pushes to the back of the deque (from the right side)
+*/
+
 static int push_back(struct deque *dq, int val)
 {
 	if(dq->size == dq->max_capacity)
@@ -65,7 +80,12 @@ static int push_back(struct deque *dq, int val)
 	return 0;
 }
 
-// Deque push_front function
+/*
+	Function name: push_front
+	Arguments: pointer to a deque, value to be inserted
+	Returns: 0 if successful and -EACCES on error
+	Function: It pushes the value to the front of the deque (from left side)
+*/
 static int push_front(struct deque *dq, int val)
 {
 	if(dq->size == dq->max_capacity)
@@ -83,7 +103,13 @@ static int push_front(struct deque *dq, int val)
 	return 0;
 }
 
-// Deque pop_front function
+/*
+	Function name: pop_front
+	Arguments: pointer to a deque (deque *dq)
+	Returns: The value of the front node of the deque
+	Function: It pops the element from the front of the deque and deletes the front (from left side) node, followed by returning the value of the front
+*/
+
 static int pop_front(struct deque *dq)
 {
 	if(dq->size == 0)
@@ -108,7 +134,11 @@ static int pop_front(struct deque *dq)
 	return value;
 }
 
-// Deque delete function
+/*
+	Function name: dq_delete
+	Arguments: pointer to a deque (deque *dq)
+	Function: It deletes the entire deque
+*/
 static void dq_delete(struct deque *dq)
 {
     if(dq != NULL)
@@ -119,6 +149,11 @@ static void dq_delete(struct deque *dq)
     }
 }
 
+/*
+	enum representing two process states:
+	1) PROC_FILE_OPEN: This state represents the process states when the process has just created the proc file and did not do any operation on the deque (deque is not initialised)
+	2) PROC_MODIFY_DEQUE: This state is reached after doing atleast one operation on the deque (the deque is created)
+*/ 
 
 enum proc_state {
     PROC_FILE_OPEN,
@@ -135,10 +170,16 @@ struct proc_node {
 
 // Global variables
 static struct proc_dir_entry *proc_file;
-static struct proc_node *process_list = NULL;
+static struct proc_node *process_list = NULL; // list of processes which has the proc file open
 
-DEFINE_MUTEX(mutex);
+DEFINE_MUTEX(mutex); // mutex lock
 
+
+/*
+	Function name: get_process_by_pid
+	Arguments: pid (process id of the process)
+	Returns: The process with the given pid and on error returns NULL
+*/
 static struct proc_node *get_process_by_pid(pid_t pid)
 {
 	struct proc_node *plist = process_list;
@@ -151,6 +192,13 @@ static struct proc_node *get_process_by_pid(pid_t pid)
 
 	return NULL;
 }
+
+/*
+	Function name: insert_process
+	Arguments: pid of the process to be inserted
+	Returns: The pointer to the node inserted
+	Function: It inserts the node of the new process to the list of processes
+*/
 
 static struct proc_node *insert_process(pid_t pid)
 {
@@ -170,6 +218,13 @@ static struct proc_node *insert_process(pid_t pid)
 	return new_node;
 }
 
+/*
+	Function name: delete_proc_node
+	Arguments: pointer to the node in the list of process which is to be deleted
+	Returns: void
+	Function: deletes the process node (by first deleting the deque)
+*/
+
 static void delete_proc_node(struct proc_node *node)
 {
 	if(node != NULL)
@@ -178,6 +233,13 @@ static void delete_proc_node(struct proc_node *node)
 		kfree(node);
 	}
 }
+
+/*
+	Function name: delete_process
+	Arguments: pid of the process to be deleted from the list of processes
+	Returns: 0 on successful deletion and -EACCES on error
+	Function: deletes the process node from the list of processes (by calling the delete_proc_node as a sub-routine)
+*/
 
 static int delete_process(pid_t pid)
 {
@@ -211,7 +273,14 @@ static int delete_process(pid_t pid)
 	return 0;
 }
 
-static void delete_all_process(void) // remember to remove void
+/*
+	Function name: delete_all_process
+	Arguments: void
+	Returns: void
+	Function: Deletes all the processes from the process list
+*/
+
+static void delete_all_process(void)
 {
 	struct proc_node *all_proc = process_list;
 
@@ -222,6 +291,13 @@ static void delete_all_process(void) // remember to remove void
 		delete_proc_node(temp);
 	}
 }
+
+/*
+	Function name: proc_file_create
+	Arguments: pointer to a inode and a file pointer
+	Returns: 0 if successful and -EACCES on error
+	Function: Creates the proc_file for a process (after checking if the process already has one or not)
+*/
 
 static int proc_file_create(struct inode *ind, struct file *fp)
 {
@@ -262,6 +338,13 @@ static int proc_file_create(struct inode *ind, struct file *fp)
 	return 0;
 }
 
+/*
+	Function name: proc_file_create
+	Arguments: pointer to a inode and a file pointer
+	Returns: 0 if successful and 0 on error
+	Function: Deletes the process from the list of processes
+*/
+
 static int proc_file_destroy(struct inode *ind, struct file* fp)
 {
 	pid_t pid;
@@ -288,6 +371,13 @@ static int proc_file_destroy(struct inode *ind, struct file* fp)
 	return 0;
 }
 
+/*
+	Function name: read_dq
+	Arguments: pointer to the process_node, character array, buffer size
+	Returns: 0 if successful and -EACCES on error
+	Function: reads the value from the front (using pop_front) and copies the value into the buf array
+*/
+
 static int read_dq(struct proc_node *pnode, char *buf, int *buf_size)
 {
 	if(pnode->state == PROC_FILE_OPEN)
@@ -306,6 +396,13 @@ static int read_dq(struct proc_node *pnode, char *buf, int *buf_size)
 	(*buf_size) = (int)sizeof(int);
 	return sizeof(int);
 }
+
+/*
+	Function name: proc_file_read
+	Arguments: file pointer, array of charcters (in user space), length, offset
+	Returns: 0 on success and -EACCES on error
+	Function: reads the value from the front of the deque (using read_dq) and copies the value into the user space 
+*/
 
 static ssize_t proc_file_read(struct file *fp, char __user *buffer, size_t length, loff_t *offset)
 {
@@ -347,6 +444,12 @@ static ssize_t proc_file_read(struct file *fp, char __user *buffer, size_t lengt
 	return 0;
 }
 
+/*
+	Function name: write_dq
+	Arguments: pointer to the process node, buffer, buffer size
+	Returns: 0 on success and -EACCES on error
+	Function: inserts the value on buffer to the deque after checking its parity
+*/
 
 static int write_dq(struct proc_node *pnode, char *buf, int *buf_size)
 {
@@ -399,6 +502,12 @@ static int write_dq(struct proc_node *pnode, char *buf, int *buf_size)
     return *buf_size;
 }
 
+/*
+	Function name: proc_file_write
+	Arguments: file pointer, user space character array, length, offset
+	Returns: 0 on success and -EACCES on error
+	Function: writes the value to be written on the deque (using write_dq)
+*/
 
 static ssize_t proc_file_write(struct file *fp, const char __user *buffer, size_t length, loff_t *offset)
 {
@@ -443,6 +552,10 @@ static ssize_t proc_file_write(struct file *fp, const char __user *buffer, size_
     return ret_val;
 }
 
+/*
+	structure consisting of the declarations of the endpoints of the functions
+*/
+
 static const struct proc_ops proc_fops = {
     .proc_open = proc_file_create,
     .proc_read = proc_file_read,
@@ -451,7 +564,12 @@ static const struct proc_ops proc_fops = {
 };
 
 
-// LKM module initialization
+/*
+	Function name: lkm_init
+	Arguments: void
+	Returns: 0 on success and -ENOENT on error
+	Function: Initialises the LKM by creating the proc file
+*/
 static int __init lkm_init(void)
 {
     printk(KERN_INFO "LKM initialised\n");
@@ -465,7 +583,12 @@ static int __init lkm_init(void)
     return 0;
 }
 
-// LKM module cleanup
+/*
+	Function name: lkm_exit
+	Arguments: void
+	Returns: void
+	Function: Deletes all processes and removes the proc_file
+*/
 static void __exit lkm_exit(void)
 {
     delete_all_process();
