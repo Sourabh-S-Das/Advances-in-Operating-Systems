@@ -392,7 +392,8 @@ static int read_dq(struct proc_node *pnode, char *buf, int *buf_size)
 	}
 
 	int front = pop_front(pnode->proc_deque);
-	sprintf(buf, "%s", (char*)&front);
+	memcpy(buf, &front, sizeof(int));
+    	buf[sizeof(int)] = '\0';
 	(*buf_size) = (int)sizeof(int);
 	return sizeof(int);
 }
@@ -418,7 +419,7 @@ static ssize_t proc_file_read(struct file *fp, char __user *buffer, size_t lengt
 	if(pnode != NULL)
 	{
 		int buf_size = min(length, (int)PROCFS_MAX_SIZE);
-		char *buf = kmalloc(sizeof(char)*(buf_size+1), GFP_KERNEL);
+		char *buf = kmalloc(sizeof(char)*(buf_size+1), GFP_KERNEL);	
 		ret_val = read_dq(pnode, buf, &buf_size);
 		if(ret_val >= 0)
 		{
@@ -442,7 +443,7 @@ static ssize_t proc_file_read(struct file *fp, char __user *buffer, size_t lengt
 		return -EACCES;
 	}
 	mutex_unlock(&mutex);
-	return 0;
+	return -EACCES;
 }
 
 /*
@@ -478,7 +479,7 @@ static int write_dq(struct proc_node *pnode, char *buf, int *buf_size)
 	}
 	else if(pnode->state == PROC_MODIFY_DEQUE)
 	{
-        if(*buf_size > 4)
+        if(*buf_size != 4)
 		{
             printk(KERN_ALERT "ERR: Buffer size for value must be 4 bytes\n");
             return -EINVAL;
@@ -489,6 +490,7 @@ static int write_dq(struct proc_node *pnode, char *buf, int *buf_size)
             return -EACCES;
         }
         int value = *((int *)buf);
+	printk(KERN_ALERT "The write value : %d\n", value);
         int ret_val;
         if(value % 2 == 0) ret_val = push_back(pnode->proc_deque, value);
         else ret_val = push_front(pnode->proc_deque, value);
