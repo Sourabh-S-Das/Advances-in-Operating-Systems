@@ -349,7 +349,7 @@ static int proc_file_destroy(struct inode *ind, struct file* fp)
 {
 	pid_t pid;
 	struct proc_node *pnode;
-
+	
 	mutex_lock(&mutex);
 	pid = current->pid;
 	printk(KERN_INFO "proc_file_destroy() initiated by process[%d]\n", pid);	
@@ -387,12 +387,13 @@ static int read_dq(struct proc_node *pnode, char *buf, int *buf_size)
 	}
 	if(pnode->proc_deque->size == 0)
 	{
-		printk(KERN_ALERT "The process[%d] has its deque empty\n", pnode->pid);
+		printk(KERN_ALERT "ERR: The process[%d] has its deque empty\n", pnode->pid);
 		return -EACCES;
 	}
 
 	int front = pop_front(pnode->proc_deque);
-	sprintf(buf, "%s", (char*)&front);
+	memcpy(buf, &front, sizeof(int));
+    	buf[sizeof(int)] = '\0';
 	(*buf_size) = (int)sizeof(int);
 	return sizeof(int);
 }
@@ -418,7 +419,7 @@ static ssize_t proc_file_read(struct file *fp, char __user *buffer, size_t lengt
 	if(pnode != NULL)
 	{
 		int buf_size = min(length, (int)PROCFS_MAX_SIZE);
-		char *buf = kmalloc(sizeof(char)*(buf_size+1), GFP_KERNEL);
+		char *buf = kmalloc(sizeof(char)*(buf_size+1), GFP_KERNEL);	
 		ret_val = read_dq(pnode, buf, &buf_size);
 		if(ret_val >= 0)
 		{
@@ -441,13 +442,14 @@ static ssize_t proc_file_read(struct file *fp, char __user *buffer, size_t lengt
 		mutex_unlock(&mutex);
 		return -EACCES;
 	}
-	return 0;
+	mutex_unlock(&mutex);
+	return -EACCES;
 }
 
 /*
 	Function name: write_dq
 	Arguments: pointer to the process node, buffer, buffer size
-	Returns: 0 on success and -EACCES on error
+	Returns: 0 on success and -EACCES on error or -EINVAL error
 	Function: inserts the value on buffer to the deque after checking its parity
 */
 
@@ -477,17 +479,18 @@ static int write_dq(struct proc_node *pnode, char *buf, int *buf_size)
 	}
 	else if(pnode->state == PROC_MODIFY_DEQUE)
 	{
-        if(*buf_size > 4)
+        if(*buf_size != 4)
 		{
             printk(KERN_ALERT "ERR: Buffer size for value must be 4 bytes\n");
             return -EINVAL;
         }
         if(pnode->proc_deque->size == pnode->proc_deque->max_capacity)
 		{
-			printk(KERN_ALERT "The process[%d] has its deque full\n", pnode->pid);
+			printk(KERN_ALERT "ERR: The process[%d] has its deque full\n", pnode->pid);
             return -EACCES;
         }
         int value = *((int *)buf);
+	printk(KERN_ALERT "The write value : %d\n", value);
         int ret_val;
         if(value % 2 == 0) ret_val = push_back(pnode->proc_deque, value);
         else ret_val = push_front(pnode->proc_deque, value);
@@ -548,7 +551,6 @@ static ssize_t proc_file_write(struct file *fp, const char __user *buffer, size_
         ret_val = -EACCES;
     }
     mutex_unlock(&mutex);
-
     return ret_val;
 }
 
