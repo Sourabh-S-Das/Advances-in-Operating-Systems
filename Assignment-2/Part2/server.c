@@ -1,5 +1,8 @@
 #include <unistd.h>
 #include <sys/types.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -14,13 +17,14 @@ typedef struct request_data{
 request_data rq;
 int handle_request = 0;
 int num_free_thread_chng = 0;
-int sockfd; 
-struct sockaddr_in servaddr, cliaddr;
 int tot_time_thread[5]; 
 
 pthread_t req_handlers[5], sender_thread, recv_thread;
 pthread_mutex_t req_data_lock, num_free_thr_lock, print_lock;
 pthread_cond_t req_data_cond, num_free_thr_cond;
+
+int sockfd; 
+struct sockaddr_in servaddr, cliaddr;
 
 void *process_request(void *args)
 {
@@ -111,6 +115,7 @@ void *send_to_lb(void *args)
         pthread_cond_broadcast(&num_free_thr_cond);
     }
 
+    close(send_sockfd);
     pthread_exit(NULL);
     return NULL;
 }
@@ -199,5 +204,7 @@ int main()
     pthread_mutex_destroy(&print_lock);
     pthread_cond_destroy(&req_data_cond);
     pthread_cond_destroy(&num_free_thr_cond);
+
+    close(sockfd);
     return 0;
 }
