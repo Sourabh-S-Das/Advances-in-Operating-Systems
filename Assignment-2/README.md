@@ -25,8 +25,6 @@ To see the debugging statements, run the following command:
 sudo cat /sys/kernel/debug/tracing/trace_pipe
 ```
 ### Part B
-In part B we could not implement the checksum updation, thus it only works in localhost (we have returned XDP_PASS instead of XDP_TX)
-
 To run part B, run the following commands:
 ```
 cd partB
