@@ -8,14 +8,17 @@
 #include <arpa/inet.h>
 #include <time.h>
 
-int main()
+int main(int argc, char* argv[])
 {
 	printf("Server started\n");
-	int sockfd, newsockfd;
+	int sockfd;
 	int clilen;
 	struct sockaddr_in cli_addr, serv_addr;
 
-	if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+    	memset(&serv_addr, 0, sizeof(serv_addr)); 
+    	memset(&cli_addr, 0, sizeof(cli_addr)); 
+
+	if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
 	{
 		perror("Cannot create socket\n");
 		exit(0);
@@ -23,7 +26,7 @@ int main()
 
 	serv_addr.sin_family = AF_INET;
 	serv_addr.sin_addr.s_addr = INADDR_ANY;
-	serv_addr.sin_port = htons(20000);
+	serv_addr.sin_port = htons(atoi(argv[1]));
 
 	if (bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0)
 	{
@@ -35,22 +38,12 @@ int main()
 
 	while (1)
 	{
-		char buf;
+		int buf;
 		clilen = sizeof(cli_addr);
-		newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr, &clilen) ;
-
-		if (newsockfd < 0)
-		{
-			perror("Accept error\n");
-			exit(0);
-		}
-		while (recv(newsockfd, &buf, 1, 0) > 0)
-		{
-			printf("Data received from %s:%d is %c\n", inet_ntoa(cli_addr.sin_addr), ntohs(cli_addr.sin_port), buf);
-		}
-
-		close(newsockfd);
+        	recvfrom(sockfd, &buf, sizeof(int), 0, (struct sockaddr *) &cli_addr, &clilen);
+		printf("Data received from %s:%d is %d\n", inet_ntoa(cli_addr.sin_addr), ntohs(cli_addr.sin_port), buf);
 	}
-
+	
+	close(sockfd);
 	return 0;
 }
